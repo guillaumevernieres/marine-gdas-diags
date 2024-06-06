@@ -164,7 +164,9 @@ exp_dirs = ['../C02/COMROOT/C02/gdas.202107??/??/analysis/atmos/gdas.t??z.radsta
 exp_names = ['atmos-ocean', 'atmos','atmos-ocean-nosoca']
 exp_colors = ['lightsalmon', 'lightgreen','lightsteelblue']
 inst = 'avhrr_metop-b'
-bias_corrected = True
-for stat_type in ['RMSE', 'BIAS']:
-    for channel_id in [1, 2, 3]:
-        plot_exps(exp_dirs, exp_names, exp_colors, inst, channel_id, stat_type, bias_corrected)
+#bias_corrected = True
+for inst in ['avhrr_metop-a', 'avhrr_metop-b']:
+    for bias_corrected in [True, False]:
+        for stat_type in ['RMSE', 'BIAS']:
+            for channel_id in [1, 2, 3]:
+                plot_exps(exp_dirs, exp_names, exp_colors, inst, channel_id, stat_type, bias_corrected)
