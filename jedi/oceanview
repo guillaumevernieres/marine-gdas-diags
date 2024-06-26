@@ -22,6 +22,19 @@ import re
 COLORS=['b','r','g','m','k','y']
 
 class Instrument:
+    """
+    Represents a simple data structure for an instrument
+
+    Attributes:
+        name (str): The name of the instrument.
+        instid (int): The instrument ID.
+        varid (int): The variable ID.
+        zmin (float): The minimum depth.
+        zmax (float): The maximum depth.
+        color (str, optional): The color of the instrument. Defaults to 'k' (black).
+        proj (list, optional): The projection(s) for the instrument. Defaults to ['global'].
+    """
+
     def __init__(self, name, instid, varid, zmin, zmax, color='k', proj=['global']):
         self.name = name
         self.instid = instid      # Instrument ID
@@ -54,7 +67,41 @@ dict_inst = { 'insitu_profile_argo'   :
              }
 
 class ioda:
+    """
+    A class representing the ioda object.
+
+    Attributes:
+        lon (list): List of longitudes.
+        lat (list): List of latitudes.
+        oma (list): List of observation minus analysis values.
+        omf (list): List of observation minus first guess values.
+        hofx (list): List of simulated observations.
+        obs (list): List of observations.
+        obserror (list): List of observation errors.
+        preqc (list): List of pre-quality control values.
+        postqc (list): List of post-quality control values.
+        lev (list): List of levels/depths.
+        seqnum (list): List of sequence numbers.
+        instid (list): List of instrument IDs.
+        col (list): List of colors.
+        time (list): List of times.
+        varname (str): Name of the variable.
+
+    Methods:
+        __init__(self, iodafnames, varname='waterTemperature'): Initializes the ioda object.
+    """
+
     def __init__(self, iodafnames, varname='waterTemperature'):
+        """
+        Initializes the ioda object.
+
+        Parameters:
+            iodafnames (list): List of iodafname files.
+            varname (str, optional): Name of the variable. Defaults to 'waterTemperature'.
+
+        Returns:
+            None
+        """
         flist=iodafnames
         self.lon=[]
         self.lat=[]
@@ -68,7 +115,7 @@ class ioda:
         self.lev=[]
         self.seqnum=[]
         self.instid=[]
-        self.col=[]
+        #self.col=[]
         self.time=[]
         self.varname=varname
 
@@ -125,9 +172,44 @@ class ioda:
         self.time = np.zeros(np.shape(self.lon))
 
 class observation_space(object):
-    def __init__(self,iodafname, varname='waterTemperature'):
-        self.ioda=ioda(iodafname, varname=varname)
-        self.iodafname=iodafname
+    """
+    Represents an observation space for oceanview.
+
+    Attributes:
+    - iodafname (str): The name of the iodafname file.
+    - varname (str): The name of the variable (default is 'waterTemperature').
+    - ioda (ioda): An instance of the ioda class.
+    - iodafname (str): The name of the iodafname file.
+    - fignum (int): The figure number.
+    - figure (Figure): The matplotlib figure.
+    - axis (Axes): The matplotlib axis.
+    - tooltip (ToolTip): The wxPython tooltip.
+    - dataX (ndarray): The longitude data.
+    - dataY (ndarray): The latitude data.
+    - X (ndarray): The transformed longitude data.
+    - Y (ndarray): The transformed latitude data.
+
+    Methods:
+    - find_inst(INSTID, dict_inst): Finds the instrument name based on the INSTID.
+    - plot_prof(dax, fcst, ana, obs, z, var_name, sigo=None): Plots the profile.
+    - draw_map(lonl=-180, lonr=180, proj='global'): Draws the map.
+    - _onMotion(event): Handles the motion event.
+    - _onClick(event): Handles the click event.
+    """
+
+    def __init__(self, iodafname, varname='waterTemperature'):
+        """
+        Initializes an instance of the observation_space class.
+
+        Parameters:
+        - iodafname (str): The name of the iodafname file.
+        - varname (str): The name of the variable (default is 'waterTemperature').
+
+        Returns:
+        None
+        """
+        self.ioda = ioda(iodafname, varname=varname)
+        self.iodafname = iodafname
         self.fignum = 2
         self.figure = pl.figure(num=1, figsize=(18, 10))
         self.axis = self.figure.add_subplot(111)
@@ -140,33 +222,62 @@ class observation_space(object):
         self.dataX = np.squeeze(self.ioda.lon)
         self.dataY = np.squeeze(self.ioda.lat)
 
-        map0=self.draw_map(lonl=-180,lonr=180)
-        x, y =map0(self.dataX,self.dataY)
-        self.X=x
-        self.Y=y
-        cnt=0
-        alpha=1.0
+        map0 = self.draw_map(lonl=-180, lonr=180)
+        x, y = map0(self.dataX, self.dataY)
+        self.X = x
+        self.Y = y
+        cnt = 0
+        alpha = 1.0
         for inst in [508, 509, 510, 511, 512, 513]:
             msize = 5.0
             # Plot obs loc
-            I=np.where(self.ioda.instid==inst)
+            I = np.where(self.ioda.instid == inst)
             self.axis.plot(x[I], y[I], linestyle='None', marker='.',
-                                                         markersize=msize,
-                                                         label='myplot',
-                                                         color=COLORS[cnt],
-                                                         alpha=alpha)
-            cnt+=1
+                           markersize=msize,
+                           label='myplot',
+                           color=COLORS[cnt],
+                           alpha=alpha)
+            cnt += 1
 
     def find_inst(self, INSTID, dict_inst):
+        """
+        Finds the instrument name based on the INSTID.
+
+        Parameters:
+        - INSTID (int): The instrument ID.
+        - dict_inst (dict): The dictionary of instrument information.
+
+        Returns:
+        - inst_name (str): The name of the instrument.
+        """
         for instrument in dict_inst:
             if INSTID==dict_inst[instrument].instid:
                 inst_name=dict_inst[instrument].name
         return inst_name
 
     def plot_prof(self, dax, fcst, ana, obs, z, var_name, sigo=None):
+        """
+        Plots the profile.
+
+        Parameters:
+        - dax (Axes): The matplotlib axis to plot on.
+        - fcst (ndarray): The forecast data.
+        - ana (ndarray): The analysis data.
+        - obs (ndarray): The observation data.
+        - z (ndarray): The depth data.
+        - var_name (str): The name of the variable.
+        - sigo (ndarray): The observation error data (default is None).
+
+        Returns:
+        None
+        """
+        # Sort the data based on depth
         I = sorted(range(len(z)), key=lambda k: z[k])
 
+        # Plot the forecast data
         dax.plot(fcst[I], z[I], '-',lw=4, color='g', label='Background')
+
+        # Plot the analysis data
         dax.plot(ana[I], z[I], '-',lw=4, color='r', label='Analysis')
         dax.plot(obs[I], z[I], '.',alpha=1.0,markersize=5.0, color='b', label='Observation')
         if sigo is not None:
@@ -179,6 +290,17 @@ class observation_space(object):
         dax.grid(True)
 
     def draw_map(self, lonl=-180, lonr=180, proj='global'):
+        """
+        Draws the map.
+
+        Parameters:
+        - lonl (float): The left longitude boundary (default is -180).
+        - lonr (float): The right longitude boundary (default is 180).
+        - proj (str): The projection type (default is 'global').
+
+        Returns:
+        - map (Basemap): The Basemap object.
+        """
         if proj=='global':
             map = Basemap(projection='robin', lon_0=-180, resolution='c')
         if proj=='polarn':
@@ -193,6 +315,15 @@ class observation_space(object):
         return map
 
     def _onMotion(self, event):
+        """
+        Handles the motion event.
+
+        Parameters:
+        - event (MotionEvent): The matplotlib motion event.
+
+        Returns:
+        None
+        """
         collisionFound = False
         if event.xdata != None and event.ydata != None: # mouse is inside the axes
             for i in range(len(self.X)):
@@ -209,7 +340,15 @@ class observation_space(object):
             self.tooltip.Enable(False)
 
     def _onClick(self, event):
+        """
+        Handles the click event.
 
+        Parameters:
+        - event (MouseEvent): The matplotlib mouse event.
+
+        Returns:
+        None
+        """
         # Left mouse click: Profile
         #--------------------------
         if event.button == 1:
@@ -360,6 +499,5 @@ if __name__ == '__main__':
           """)
     args = parser.parse_args()
     listoffiles = args.input
-#    dict_inst, COLORS = dictionaries()
     example=observation_space(listoffiles, args.variable)
     plt.show()
