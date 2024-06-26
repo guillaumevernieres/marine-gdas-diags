@@ -19,65 +19,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import re
 
 
-def get_from_ioda(ncfile, varname, groupname):
-    varout=ncfile.groups[groupname].variables[varname][:]
-    return varout
-
-def plot_prof(dax, fcst, ana, obs, z, var_name, sigo=None):
-    I = sorted(range(len(z)), key=lambda k: z[k])
-
-    dax.plot(fcst[I], z[I], '-',lw=4, color='g', label='Background')
-    dax.plot(ana[I], z[I], '-',lw=4, color='r', label='Analysis')
-    dax.plot(obs[I], z[I], '.',alpha=1.0,markersize=5.0, color='b', label='Observation')
-    if sigo is not None:
-        sigo_tmp=sigo[I]
-        sigo_tmp[abs(sigo_tmp)>999.9]=np.nan
-        dax.plot(obs[I]-1.0*sigo_tmp, z[I], '--',linewidth=1.0, color='b')
-        dax.plot(obs[I]+1.0*sigo_tmp, z[I], '--',linewidth=1.0, color='b')
-    dax.legend()
-    dax.set_xlabel(var_name,fontweight='bold')
-    dax.grid(True)
-
-def plot_reg(dax, x1, x2, xcolor, title):
-    dax.plot(x1, x2,'.', color=xcolor, alpha=0.1)
-    dax.axis('equal')
-    slope, intercept, r_value, p_value, std_err = stats.linregress(x1, x2)
-    titlestr=title + " slope: %3.3f r: %1.3f rms: %1.3f" % (slope, r_value, std_err)
-    plt.grid(True)
-    plt.title(titlestr,fontsize=24,fontweight='bold')
-
-def draw_map(lonl=-180, lonr=180, proj='global'):
-    if proj=='global':
-        map = Basemap(projection='robin', lon_0=-180, resolution='c')
-    if proj=='polarn':
-        map = Basemap(projection='npstere', boundinglat=60, lon_0=0, resolution='l')
-    if proj=='polars':
-        map = Basemap(projection='spstere', boundinglat=-50, lon_0=0, resolution='l')
-    map.drawcoastlines()
-    map.fillcontinents(color='gray') #, zorder=1)
-    #map.drawparallels(np.arange(-90.,120.,30.),labels=[1,0,0,0])
-    #map.drawmeridians(np.arange(0.,420.,60.),labels=[0,0,0,1])
-
-    return map
-
-def find_inst(INSTID, dict_inst):
-    for instrument in dict_inst:
-        if INSTID==dict_inst[instrument].instid:
-            inst_name=dict_inst[instrument].name
-    return inst_name
-
-def obsid2instidvarid(obsid, var, bufr_subset):
-    instnum = dict_inst[bufr_subset].instid
-    instid=instnum*np.ones(np.shape(obsid))
-    varid=np.ones(np.shape(obsid))
-    if (var=='waterTemperature'):
-        varid=101*varid
-    if (var=='salinity'):
-        varid=102*varid
-    if (var=='seaSurfaceTemperature'):
-        varid=103*varid
-
-    return instid, varid
+COLORS=['b','r','g','m','k','y']
 
 class Instrument:
     def __init__(self, name, instid, varid, zmin, zmax, color='k', proj=['global']):
@@ -96,29 +38,20 @@ class VarSpecs:
         self.fignum = fignum
         self.units  = units
 
-def dictionaries():
-    dict_inst = { 'insitu_profile_argo'   :
-                  Instrument(name='Argo', instid=508, varid=np.array([101, 102]), zmin=0, zmax=2000),
-                  'insitu_profile_bathy'   :
-                  Instrument(name='bathy', instid=509, varid=np.array([101, 102]), zmin=0, zmax=2000),
-                  'insitu_profile_tesac'   :
-                  Instrument(name='tesac', instid=510, varid=np.array([101, 102]), zmin=0, zmax=2000),
-                  'insitu_profile_tesac_salinity'   :
-                  Instrument(name='tesac salt', instid=511, varid=np.array([102]), zmin=0, zmax=2000),
-                  'insitu_surface_trkob'   :
-                  Instrument(name='trkob', instid=512, varid=np.array([102]), zmin=0, zmax=2000),
-                  'insitu_surface_trkob_salinity'   :
-                  Instrument(name='trkob salt', instid=513, varid=np.array([102]), zmin=0, zmax=2000),
-                 }
 
-    dict_varspecs = {'T'    : VarSpecs(varid=101, bounds= [-3., 38.], fignum=1, units='^oC'),
-                     'S'    : VarSpecs(varid=102, bounds= [ 0., 45.], fignum=2, units='psu'),
-                     'U'    : VarSpecs(varid=103, bounds= [-5.,  5.], fignum=3, units='m/s'),
-                     'V'    : VarSpecs(varid=104, bounds= [-5.,  5.], fignum=4, units='m/s') }
-
-    COLORS=['b','r','g','m','k','y']
-
-    return dict_inst, dict_varspecs, COLORS
+dict_inst = { 'insitu_profile_argo'   :
+              Instrument(name='Argo', instid=508, varid=np.array([101, 102]), zmin=0, zmax=2000),
+              'insitu_profile_bathy'   :
+              Instrument(name='bathy', instid=509, varid=np.array([101, 102]), zmin=0, zmax=2000),
+              'insitu_profile_tesac'   :
+              Instrument(name='tesac', instid=510, varid=np.array([101, 102]), zmin=0, zmax=2000),
+              'insitu_profile_tesac_salinity'   :
+              Instrument(name='tesac salt', instid=511, varid=np.array([102]), zmin=0, zmax=2000),
+              'insitu_surface_trkob'   :
+              Instrument(name='trkob', instid=512, varid=np.array([102]), zmin=0, zmax=2000),
+              'insitu_surface_trkob_salinity'   :
+              Instrument(name='trkob salt', instid=513, varid=np.array([102]), zmin=0, zmax=2000),
+             }
 
 class ioda:
     def __init__(self, iodafnames, varname='waterTemperature'):
@@ -146,10 +79,11 @@ class ioda:
         if varname=='salinity':
            self.unit = '[psu]'
 
+        get_from_ioda = lambda ncfile, varname, groupname: ncfile.groups[groupname].variables[varname][:]
         pattern = re.compile(r'\.\d{10}\.nc4$')
         for iodafname in tqdm(flist):
             ncfile = Dataset(iodafname)
-            bufr_subset = pattern.sub('', iodafname)
+            bufr_subset = pattern.sub('', iodafname.split('/')[-1])
 
             dum=get_from_ioda(ncfile,varname,'ObsValue');
             I=np.where(abs(dum)<9999999.9)
@@ -206,7 +140,7 @@ class observation_space(object):
         self.dataX = np.squeeze(self.ioda.lon)
         self.dataY = np.squeeze(self.ioda.lat)
 
-        map0=draw_map(lonl=-180,lonr=180)
+        map0=self.draw_map(lonl=-180,lonr=180)
         x, y =map0(self.dataX,self.dataY)
         self.X=x
         self.Y=y
@@ -223,13 +157,48 @@ class observation_space(object):
                                                          alpha=alpha)
             cnt+=1
 
+    def find_inst(self, INSTID, dict_inst):
+        for instrument in dict_inst:
+            if INSTID==dict_inst[instrument].instid:
+                inst_name=dict_inst[instrument].name
+        return inst_name
+
+    def plot_prof(self, dax, fcst, ana, obs, z, var_name, sigo=None):
+        I = sorted(range(len(z)), key=lambda k: z[k])
+
+        dax.plot(fcst[I], z[I], '-',lw=4, color='g', label='Background')
+        dax.plot(ana[I], z[I], '-',lw=4, color='r', label='Analysis')
+        dax.plot(obs[I], z[I], '.',alpha=1.0,markersize=5.0, color='b', label='Observation')
+        if sigo is not None:
+            sigo_tmp=sigo[I]
+            sigo_tmp[abs(sigo_tmp)>999.9]=np.nan
+            dax.plot(obs[I]-1.0*sigo_tmp, z[I], '--',linewidth=1.0, color='b')
+            dax.plot(obs[I]+1.0*sigo_tmp, z[I], '--',linewidth=1.0, color='b')
+        dax.legend()
+        dax.set_xlabel(var_name,fontweight='bold')
+        dax.grid(True)
+
+    def draw_map(self, lonl=-180, lonr=180, proj='global'):
+        if proj=='global':
+            map = Basemap(projection='robin', lon_0=-180, resolution='c')
+        if proj=='polarn':
+            map = Basemap(projection='npstere', boundinglat=60, lon_0=0, resolution='l')
+        if proj=='polars':
+            map = Basemap(projection='spstere', boundinglat=-50, lon_0=0, resolution='l')
+        map.drawcoastlines()
+        map.fillcontinents(color='gray') #, zorder=1)
+        #map.drawparallels(np.arange(-90.,120.,30.),labels=[1,0,0,0])
+        #map.drawmeridians(np.arange(0.,420.,60.),labels=[0,0,0,1])
+
+        return map
+
     def _onMotion(self, event):
         collisionFound = False
         if event.xdata != None and event.ydata != None: # mouse is inside the axes
             for i in range(len(self.X)):
                 radius = 100000 # Collision radius
                 if (abs(event.xdata - self.X[i]) < radius) and (abs(event.ydata - self.Y[i]) < radius):
-                    inst_name = find_inst(self.ioda.instid[i], dict_inst)
+                    inst_name = self.find_inst(self.ioda.instid[i], dict_inst)
                     top = tip='Lon=%f\nLat=%f\nInstrument: %s\nVar: %s' % (self.dataX[i], self.dataY[i], inst_name, self.ioda.varname)
                     self.tooltip.SetTip(tip)
                     self.tooltip.Enable(True)
@@ -246,7 +215,7 @@ class observation_space(object):
         if event.button == 1:
             self.figure2 = plt.figure(num=self.fignum, figsize=(12, 12))
             self.axis2 = self.figure2.add_axes([0.3,0.69,0.4,0.3])
-            map=draw_map()
+            map=self.draw_map()
             for shift in [0, 360]:
                 x, y =map(self.dataX+shift,self.dataY)
                 self.axis2.plot(x[:], y[:],
@@ -255,7 +224,7 @@ class observation_space(object):
                                 linestyle='None', marker='.', markersize=10, label='myplot', color='k')
 
             # Identify instrument and variable
-            inst_name = find_inst(self.ioda.instid[self.i], dict_inst)
+            inst_name = self.find_inst(self.ioda.instid[self.i], dict_inst)
 
             # Prepare axis
             self.axis3 = self.figure2.add_axes([0.1,0.05,0.8,0.6])
@@ -275,7 +244,7 @@ class observation_space(object):
                profile_legend = f'Insitu temperature {self.ioda.unit}'
             if self.ioda.varname=='salinity':
                profile_legend = f'Salinity {self.ioda.unit}'
-            plot_prof(self.axis3, fcst, ana, obsi, z, profile_legend, sigo=obserrori)
+            self.plot_prof(self.axis3, fcst, ana, obsi, z, profile_legend, sigo=obserrori)
 
             # Add obs info to the figure
             self.axis5 = self.figure2.add_axes([0.75,0.75,0.2,0.2],frameon=False)
@@ -350,7 +319,7 @@ class observation_space(object):
                     STD=np.std(self.ioda.omf[I])
 
                     axis2 = figure2.add_subplot(211)
-                    map=draw_map(proj=proj)
+                    map=self.draw_map(proj=proj)
                     for shift in [0, 360]:
                         x, y =map(self.dataX[I]+shift,self.dataY[I])
                         axis2.scatter(x, y, 5, c=self.ioda.omf[I], cmap=cm.bwr,vmin=-2*STD,vmax=2*STD,edgecolor=None,lw=0)
@@ -358,7 +327,7 @@ class observation_space(object):
                     plt.title(titlestr,fontsize=24,fontweight='bold')
 
                     axis3 = figure2.add_subplot(212)
-                    map=draw_map(proj=proj)
+                    map=self.draw_map(proj=proj)
                     for shift in [0, 360]:
                         x, y =map(self.dataX[I]+shift,self.dataY[I])
                         axis3.scatter(x, y, 5, c=self.ioda.oma[I], cmap=cm.bwr,vmin=-2*STD,vmax=2*STD,edgecolor=None,lw=0)
@@ -391,6 +360,6 @@ if __name__ == '__main__':
           """)
     args = parser.parse_args()
     listoffiles = args.input
-    dict_inst, dict_varspecs, COLORS = dictionaries()
+#    dict_inst, COLORS = dictionaries()
     example=observation_space(listoffiles, args.variable)
     plt.show()
